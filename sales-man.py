@@ -1,6 +1,7 @@
 from bs4 import BeautifulSoup as soup
 import requests
 from datetime import date
+import pandas as pd
 
 myurl = 'https://www.morele.net/alarmcenowy/'
 
@@ -18,10 +19,7 @@ page_soup = soup(page_html, "html.parser")
 # grabs each product
 containers = page_soup.findAll("div", {"class": "owl-item"})
 
-filename = "products " + str(date.today()) + ".csv"
-f = open(filename, "w")
-headers = "produkt|komentarze|stara cena|nowa cena\n"
-f.write(headers)
+row_list = []
 
 for container in containers:
     produkt = container.div.find('a', class_="link-bottom").span.text[:37].strip()
@@ -30,20 +28,21 @@ for container in containers:
     komentarze = ktest.text if ktest else "0"
     komentarze = komentarze.strip('()')
 
-    #TODO: remove "zł"
-    scena = container.find('div', class_='product-slider-price text-right').span.text.strip("zł")
-    ncena = container.find('div', class_='product-slider-price text-right').findChildren()[1].text.strip("zł")
+    scena = float(''.join(container.find('div', class_='product-slider-price text-right').span.text.strip("zł").split()).replace(',', '.'))
+    ncena = float(''.join(container.find('div', class_='product-slider-price text-right').findChildren()[1].text.strip("zł").split()).replace(',', '.'))
 
-    print("produkt: " + produkt)
-    print("komentarze: " + komentarze)
-    print("stara cena: " + scena)
-    print("nowa cena: " + ncena)
-    #TODO: change output to dataframe and analyse
-    #TODO: add calculated fields
-    # TODO: change formatting
-    f.write(produkt + '|' + komentarze + '|' + scena + '|' + ncena + "\n")
+    single_row = {}
+    single_row.update({'Produkt': produkt, '#komentarze': komentarze, 'Stara cena': scena, 'Nowa cena': ncena})
+    row_list.append(single_row)
 
-f.close()
+df = pd.DataFrame(row_list, columns=['Produkt', '#komentarze', 'Stara cena', 'Nowa cena', 'var', 'var2'])
 
-# GITHUB TEST
-# branch test
+df['var'] = df['Stara cena'] - df['Nowa cena']
+df['var2'] = df['var'] / df['Stara cena']
+
+df.index += 1
+df.index.name = 'id'
+df.sort_values(by='var2', ascending='False')
+df.to_excel('Products ' + str(date.today()) + '.xlsx', float_format='%.2f')
+
+print(df.head())
