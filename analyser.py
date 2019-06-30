@@ -24,16 +24,15 @@ driver = webdriver.Chrome(ChromeDriverManager().install(), options=option)
 
 
 def test1stlink():
-    links = cpage_soup.findAll('div', {'class:': 'cat-prod-row js_category-list-item js_clickHashData js_man-track-event'})
+    links = cpage_soup.findAll('div', class_='cat-prod-row js_category-list-item js_clickHashData js_man-track-event')
 
     # fitem = cpage_soup.find('div', {'class': 'cat-prod-row-body'}).div.a.attrs['href']
     i = 0
     while i < 3:
-        if '/Click/Offer' in links[0].div.div.a.attrs['href']:
+        if '/Click/Offer' in links[i].div.div.a.attrs['href']:
             i += 1
         else:
-            fitem = links.div.div.a.attrs['href']
-            print(fitem)
+            fitem = links[i].div.div.a.attrs['href']
             return fitem
 
 
@@ -70,9 +69,9 @@ for nm in db['Produkt'].values:
 
     # grab 1st product's link
 
-    test1stlink()
 
-    mydetailedurl = 'https://www.ceneo.pl' + fitem
+
+    mydetailedurl = 'https://www.ceneo.pl' + test1stlink()
     ceneodet = requests.get(mydetailedurl)
     cdpage_html = ceneodet.text
     ceneodet.close()
@@ -89,3 +88,4 @@ for nm in db['Produkt'].values:
 ndf = pd.DataFrame(new_row_list, columns=['ceneo', 'cena1', 'cena2'])
 print(ndf.head())
 
+# TODO: fix boxed vied
