@@ -2,20 +2,7 @@ import pandas as pd
 import xlrd
 import bs4
 import requests
-from selenium import webdriver
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.keys import Keys
-
-# selenium settings
-
-option = Options()
-option.add_argument("==disable-infobars")
-option.add_argument("==start-maximized")
-option.add_argument("--disable-extensions")
-option.add_experimental_option("prefs", {
-    "profile.default_content_setting_values.notifications": 2})
-driver = webdriver.Chrome(ChromeDriverManager().install(), options=option)
+from datetime import date
 
 # functions:
 
@@ -24,68 +11,129 @@ driver = webdriver.Chrome(ChromeDriverManager().install(), options=option)
 
 
 def test1stlink():
-    links = cpage_soup.findAll('div', class_='cat-prod-row js_category-list-item js_clickHashData js_man-track-event')
-
-    # fitem = cpage_soup.find('div', {'class': 'cat-prod-row-body'}).div.a.attrs['href']
-    i = 0
-    while i < 3:
-        if '/Click/Offer' in links[i].div.div.a.attrs['href']:
-            i += 1
+    cview = testview()
+    if cview == 'list':
+        links = cpage_soup.findAll('div', class_='cat-prod-row js_category-list-item js_clickHashData js_man-track-event')
+        i = 0
+        while i < 3:
+            if '/Click/Offer' in links[i].div.div.a.attrs['href'] or 'row_promotion' in links[i].div.div.a.attrs['href']:
+                i += 1
+                if i == 2:
+                    fitem = '0 results'
+                    return fitem
+            elif links[i].div.div.a.attrs['href'][0] != '/':
+                fitem = '/' + links[i].attrs['data-pid']
+                return fitem
+            else:
+                fitem = links[i].div.div.a.attrs['href']
+                return fitem
+    elif cview == 'boxed':
+        try:
+            cpage_soup.find('div', class_='grid-item grid-item--1x2 js_grid-item js_category-list-item js_man-track-event').attrs['data-pid']
+        except AttributeError:
+            try:
+                link = cpage_soup.find('div', class_='category-item-box js_category-list-item js_clickHashData js_man-track-event').attrs['data-pid']
+                fitem = '/' + link
+                return fitem
+            except AttributeError:
+                fitem = '0 results'
+                return fitem
         else:
-            fitem = links[i].div.div.a.attrs['href']
+            link = cpage_soup.find('div', class_='grid-item grid-item--1x2 js_grid-item js_category-list-item js_man-track-event').attrs['data-pid']
+            fitem = '/' + link
+            return fitem
+    elif cview == 'boxed_2nd_type':
+        try:
+            cpage_soup.find('div', class_='grid-item grid-item--1x1 js_grid-item js_category-list-item js_man-track-event').attrs['data-pid']
+        except AttributeError:
+            try:
+                link = cpage_soup.find('div', class_='category-item-box js_category-list-item js_clickHashData js_man-track-event').attrs['data-pid']
+                fitem = '/' + link
+                return fitem
+            except AttributeError:
+                fitem = '0 results'
+                return fitem
+        else:
+            link = cpage_soup.find('div', class_='grid-item grid-item--1x1 js_grid-item js_category-list-item js_man-track-event').attrs['data-pid']
+            fitem = '/' + link
             return fitem
 
 
 def scrapceneo():
     boxes = mdpage_soup.findAll('section', {'class': 'product-offers-group'})
-    ceneoname = mdpage_soup.find('section', {'class': 'product-offers-group'}).table.tbody.tr.attrs[
-        'data-gaproductname']
+    try:
+        ceneoname = mdpage_soup.find('section', {'class': 'product-offers-group'}).table.tbody.tr.attrs['data-gaproductname']
+    except KeyError:
+        ceneoname = 'n/a'
     print(ceneoname)
-    cena1 = mdpage_soup.find('section', {'class': 'product-offers-group'}).table.tbody.tr.attrs['data-price']
+
+    try:
+        cena1 = mdpage_soup.find('section', {'class': 'product-offers-group'}).table.tbody.tr.attrs['data-price']
+    except KeyError:
+        cena1 = 'n/a'
     print(cena1)
+
     if len(boxes) > 1:
-        cena2 = boxes[1].table.tbody.tr.attrs['data-price']
+        try:
+            cena2 = boxes[1].table.tbody.tr.attrs['data-price']
+        except KeyError:
+            cena2 = 'n/a'
         print(cena2)
     else:
-        cena2 = 0
+        cena2 = 'n/a'
 
     return ceneoname, cena1, cena2
 
+def testview():
+    try:
+        cpage_soup.find('ul', {'class': 'category-list-type-switcher'}).li.a.attrs['class'][2]
+    except IndexError:
+        view = 'boxed'
+        return view
+    except AttributeError:
+        view = 'boxed_2nd_type'
+        return view
+    else:
+        view = 'list'
+        return view
 
-db = pd.read_excel('Products 2019-06-23.xlsx', index_col=0)
+
+morele_df = pd.read_excel('Products 2019-06-23.xlsx', index_col=0)
 
 new_row_list = []
 
-for nm in db['Produkt'].values:
+for nm in morele_df['Produkt'].values:
 
     print(nm)
     myurl = 'https://www.ceneo.pl/;szukaj-' + nm.replace(' ', '+')
     print(myurl)
-    ceneopage = requests.get(myurl)
+    ceneopage = requests.get(myurl, timeout=5)
     cpage_html = ceneopage.text
     ceneopage.close()
 
     cpage_soup = bs4.BeautifulSoup(cpage_html, 'html.parser')
 
-    # grab 1st product's link
+    best_match = test1stlink()
+    if best_match == '0 results':
+        ceneoname = cena1 = cena2 = 'n/a'
+    else:
+        mydetailedurl = 'https://www.ceneo.pl' + best_match
+        ceneodet = requests.get(mydetailedurl, timeout=5)
+        cdpage_html = ceneodet.text
+        ceneodet.close()
 
+        mdpage_soup = bs4.BeautifulSoup(cdpage_html, 'html.parser')
 
-
-    mydetailedurl = 'https://www.ceneo.pl' + test1stlink()
-    ceneodet = requests.get(mydetailedurl)
-    cdpage_html = ceneodet.text
-    ceneodet.close()
-
-    mdpage_soup = bs4.BeautifulSoup(cdpage_html, 'html.parser')
-
-    # grab best prices
-    ceneoname, cena1, cena2 = scrapceneo()
+        # grab best prices
+        ceneoname, cena1, cena2 = scrapceneo()
 
     new_single_row = {}
     new_single_row.update({'ceneo': ceneoname, 'cena1': cena1, 'cena2': cena2})
     new_row_list.append(new_single_row)
 
-ndf = pd.DataFrame(new_row_list, columns=['ceneo', 'cena1', 'cena2'])
-print(ndf.head())
+ceneo_df = pd.DataFrame(new_row_list, columns=['ceneo', 'cena1', 'cena2'])
 
-# TODO: fix boxed vied
+output_df = pd.concat([morele_df.reset_index(drop=True), ceneo_df], axis=1)
+print(output_df.head())
+
+output_df.to_excel('test ' + str(date.today()) + '.xlsx', float_format='%.2f')
