@@ -2,10 +2,8 @@ import pandas as pd
 import xlrd
 import bs4
 import requests
-from datetime import date
 from MoreleScraper import Scraper
-import numpy as np
-import functools
+
 
 class Analyser:
 
@@ -150,7 +148,6 @@ class Analyser:
 
         # FILTERS
         # filtering top discounts
-
         # is var > 0
         output_df['condition1'] = output_df['real discount'] > 0
         # eliminate discounts greater than 65%
@@ -158,13 +155,30 @@ class Analyser:
         # eliminate discounts less than 100 PLN
         output_df['condition3'] = output_df['real discount'] > -100
 
+        # sorting
+        output_df.sort_values(['real discount'], inplace=True, ascending=True)
+
         print(output_df.head())
 
+        filtered_output = output_df[(output_df.condition1 == False) &
+                                    (output_df.condition2 == False) &
+                                    (output_df.condition3 == False)]
+
+        # drop last columns
+        filtered_output = filtered_output.drop(columns=['condition1',
+                                                        'condition2',
+                                                        'condition3',
+                                                        'cena1',
+                                                        'cena2'])
+
+        filtered_output.sort_values(['real discount'], ascending='True', inplace=True)
+
+        # reset index
+        output_df.reset_index(drop=True, inplace=True)
+        filtered_output.index += 1
+        filtered_output.index.name = 'id'
+
+        # full output
         output_df.to_excel('Analysed ' + Scraper.file_name(), float_format='%.2f')
-
         # output with filters applied
-
-        # print(output_df[output_df.condition1 == 'False'])
-
-
-        #output_filters_df.to_excel('Filtered ' + Scraper.file_name(), float_format='%.2f')
+        filtered_output.to_excel('Filtered ' + Scraper.file_name(), float_format='%.2f')

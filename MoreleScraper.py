@@ -9,6 +9,7 @@ import requests
 # installed_packages = [(d.project_name, d.version) for d in pkg_resources.working_set]
 # print(installed_packages)
 
+
 class Scraper:
 
     @staticmethod
@@ -34,7 +35,7 @@ class Scraper:
 
         row_list = []
 
-        #loop trough each item on the page
+        # loop trough each item on the page
         for container in containers:
 
             produkt = container.div.find('a', class_="link-bottom").span.text[:39].strip()
@@ -61,7 +62,7 @@ class Scraper:
         df.index.name = 'id'
         df.sort_values(['var'], ascending='True', inplace=True)
 
-        #save to excel
+        # save to excel
         df.to_excel(Scraper.file_name(), float_format='%.2f')
 
         print(df.head())
