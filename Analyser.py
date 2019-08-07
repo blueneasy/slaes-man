@@ -11,6 +11,17 @@ class Analyser:
     # 1) get product name and prices from c.pl.
     # note: Only one container displays for products without recommendation.
 
+    # prevent no results in the search
+    @staticmethod
+    def zero_results_test(cpage_soup):
+        try:
+            test = cpage_soup.find('div', class_='js_marketplace-for-search-notfound').div.attrs['class']
+        except AttributeError:
+            return
+        else:
+            return '0 results'
+
+    # test first link in the search results
     def test1stlink(self, cpage_soup):
         cview = self.testview(cpage_soup)
         if cview == 'list':
@@ -59,6 +70,7 @@ class Analyser:
                 fitem = '/' + link
                 return fitem
 
+    # check the type of view on c.pl (boxed/list)
     @staticmethod
     def testview(cpage_soup):
         try:
@@ -73,6 +85,7 @@ class Analyser:
             view = 'list'
             return view
 
+    # open link and scrap data from the best matching search result
     @staticmethod
     def scrapceneo(mdpage_soup):
         boxes = mdpage_soup.findAll('section', {'class': 'product-offers-group'})
@@ -99,6 +112,7 @@ class Analyser:
 
         return ceneoname, cena1, cena2
 
+    # main function, put each item from Data file and append c.pl results
     def analyse(self, filename):
 
         morele_df = pd.read_excel(filename, index_col=0)
@@ -110,16 +124,17 @@ class Analyser:
             print(nm)
             myurl = 'https://www.ceneo.pl/;szukaj-' + nm.replace(' ', '+')
             print(myurl)
-            ceneopage = requests.get(myurl, timeout=5)
+            ceneopage = requests.get(myurl, timeout=None)
             cpage_html = ceneopage.text
             ceneopage.close()
 
             cpage_soup = bs4.BeautifulSoup(cpage_html, 'html.parser')
-
-            best_match = self.test1stlink(cpage_soup)
-            if best_match == '0 results':
+            if self.zero_results_test(cpage_soup) == '0 results':
+                ceneoname = cena1 = cena2 = 'n/a'
+            elif self.test1stlink(cpage_soup) == '0 results':
                 ceneoname = cena1 = cena2 = 'n/a'
             else:
+                best_match = self.test1stlink(cpage_soup)
                 mydetailedurl = 'https://www.ceneo.pl' + best_match
                 ceneodet = requests.get(mydetailedurl, timeout=5)
                 cdpage_html = ceneodet.text
@@ -182,3 +197,6 @@ class Analyser:
         output_df.to_excel('Analysed ' + Scraper.file_name(), float_format='%.2f')
         # output with filters applied
         filtered_output.to_excel('Filtered ' + Scraper.file_name(), float_format='%.2f')
+
+
+# TODO: fix unsupported operand type(s) for -: 'float' and 'str' line 160
